@@ -1,0 +1,166 @@
+{
+  "pluginAlias": "GpioIrrigationSystem",
+  "pluginType": "platform",
+  "singular": false,
+  "headerDisplay": null,
+  "schema": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "title": "Irrigation System",
+        "type": "string",
+        "format": "string",
+        "required": true,
+        "minLength": 6,
+        "default": "Sprinkler"
+      },
+      "type": {
+        "title": "Type",
+        "type": "string",
+        "default": "Sprinkler",
+        "oneOf": [
+          {
+            "title": "Sprinkler",
+            "enum": [
+              "IRRIGATION"
+            ]
+          },
+          {
+            "title": "Shower Head",
+            "enum": [
+              "SHOWER_HEAD"
+            ]
+          },
+          {
+            "title": "Water Faucet",
+            "enum": [
+              "WATER_FAUCET"
+            ]
+          },
+          {
+            "title": "Generic Valve",
+            "enum": [
+              "GENERIC_VALVE"
+            ]
+          }
+        ],
+        "required": true
+      },
+      "defaultDuration": {
+        "title": "Default duration",
+        "type": "integer",
+        "default": 1200,
+        "required": true
+      },
+      "gpio": {
+        "title": "GPIO Settings",
+        "type": "object",
+        "properties": {
+          "pin": {
+            "title": "Pin Number",
+            "type": "integer",
+            "required": true
+          },
+          "invertHighLow": {
+            "title": "invert pin signal",
+            "type": "boolean",
+            "default": false,
+            "required": true
+          }
+        },
+        "required": true
+      },
+      "automation": {
+        "title": "Scheduled activation",
+        "type": "array",
+        "items": {
+          "title": "Schedule",
+          "type": "object",
+          "properties": {
+            "active": {
+              "title": "enabled",
+              "type": "boolean",
+              "default": true,
+              "required": true
+            },
+            "duration": {
+              "title": "duration in ms",
+              "type": "integer",
+              "default": 1200,
+              "required": true
+            },
+            "time": {
+              "title": "time in hh:mm",
+              "type": "string",
+              "default": "00:00",
+              "pattern": "^[0-2][0-9]:[0-5][0-9]$",
+              "required": true
+            }
+          }
+        }
+      }
+    }
+  },
+  "layout": [
+    {
+      "type": "flex",
+      "flex-flow": "row wrap",
+      "items": [
+        "name",
+        "type"
+      ]
+    },
+    {
+      "type": "div",
+      "items": [
+        "defaultDuration"
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "GPIO Settings",
+      "expandable": true,
+      "items": [
+        {
+          "type": "flex",
+          "flex-flow": "row wrap",
+          "items": [
+            "gpio.pin",
+            "gpio.invertHighLow"
+          ]
+        }
+      ]
+    },
+    {
+      "type": "fieldset",
+      "title": "Schedule",
+      "expandable": true,
+      "items": [
+        {
+          "key": "automation",
+          "type": "array",
+          "items": [
+            {
+              "type": "div",
+              "items": [
+                {
+                  "type": "flex",
+                  "flex-flow": "row wrap",
+                  "items": [
+                    "automation[].duration",
+                    "automation[].time"
+                  ]
+                },
+                {
+                  "items": [
+                    "automation[].active"
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}
