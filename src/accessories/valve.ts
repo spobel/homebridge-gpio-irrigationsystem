@@ -1,11 +1,12 @@
-import {AccessoryPlugin, Logging} from "homebridge";
-import {Characteristic, CharacteristicValue, CharacteristicSetCallback, Service} from "hap-nodejs";
+import {AccessoryPlugin, Logging, CharacteristicValue, CharacteristicSetCallback, API} from "homebridge";
 import {CronJob} from "cron";
 
 import {GpioIrrigationSystemAccessory} from "./irrigationsystem";
 import {GpioOutput} from "../gpio/gpio_output";
 import {Timer} from "../utils/timer";
 import {AutomationConfig, ValveConfig} from "../config_types";
+
+let Characteristic, Service;
 
 export class GpioValveAccessory implements AccessoryPlugin {
 
@@ -19,7 +20,10 @@ export class GpioValveAccessory implements AccessoryPlugin {
     private jobs: CronJob[] = [];
     private jobsAreActive = true;
 
-    constructor(public readonly log: Logging, public readonly parent: GpioIrrigationSystemAccessory, public readonly outlet: ValveConfig, public readonly index: number) {
+    constructor(public readonly log: Logging, public readonly parent: GpioIrrigationSystemAccessory, public readonly outlet: ValveConfig, public readonly index: number, private api: API) {
+        Characteristic = api.hap.Characteristic;
+        Service = api.hap.Service;
+
         this.name = this.parent.name + ".Zone " + index;
         this.logInfo("Initializing...");
 
@@ -33,7 +37,7 @@ export class GpioValveAccessory implements AccessoryPlugin {
         this.activateJobs();
     }
 
-    getServices(): Service[] {
+    getServices(): typeof Service[] {
         return [this.valveService];
     }
 

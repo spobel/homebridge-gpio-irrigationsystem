@@ -1,7 +1,8 @@
-import {AccessoryPlugin, Logging} from 'homebridge';
-import {Characteristic, CharacteristicValue, Service} from "hap-nodejs";
+import {AccessoryPlugin, Logging, CharacteristicValue, API} from 'homebridge';
 import {ValveConfig, SystemConfig} from "../config_types";
 import {GpioValveAccessory} from "./valve";
+
+let Characteristic, Service;
 
 export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
 
@@ -10,7 +11,9 @@ export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
     private readonly irrigationSystemService;
     private readonly subValves: GpioValveAccessory[] = [];
 
-    constructor(private readonly log: Logging, private readonly system: SystemConfig) {
+    constructor(private readonly log: Logging, private readonly system: SystemConfig, public readonly api: API) {
+        Characteristic = api.hap.Characteristic;
+        Service = api.hap.Service;
         this.name = system.name;
         this.logInfo("Initializing...");
         this.accessoryInformationService = new Service.AccessoryInformation();
@@ -45,7 +48,7 @@ export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
     }
 
     initValve(valveConfig: ValveConfig, index: number) {
-        this.subValves.push(new GpioValveAccessory(this.log, this, valveConfig, index + 1));
+        this.subValves.push(new GpioValveAccessory(this.log, this, valveConfig, index + 1, this.api));
     }
 
     onChangeActive(): void {
@@ -96,11 +99,11 @@ export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
             .filter(l => l.getCharacteristic(characteristic).value === value).length;
     }
 
-    getAccessoryInformationService(): Service {
+    getAccessoryInformationService(): typeof Service {
         return this.accessoryInformationService;
     }
 
-    getIrrigationSystemService(): Service {
+    getIrrigationSystemService(): typeof Service {
         return this.irrigationSystemService;
     }
 
@@ -108,7 +111,7 @@ export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
         this.log.info("[%s] %s", this.name, message);
     }
 
-    getServices(): Service[] {
+    getServices(): typeof Service[] {
         return [this.accessoryInformationService,
             this.irrigationSystemService,
             ...(this.subValves.map(v => v.getValveService()))];

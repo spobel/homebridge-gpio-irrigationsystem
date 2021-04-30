@@ -13,7 +13,7 @@ export class GpioIrrigationSystemPlatform implements StaticPlatformPlugin {
     }
 
     addSystem(system: SystemConfig) {
-        this.accessoryPlugins.push(new GpioIrrigationSystemAccessory(this.log, system));
+        this.accessoryPlugins.push(new GpioIrrigationSystemAccessory(this.log, system, this.api));
     }
 
     accessories(callback: (foundAccessories: AccessoryPlugin[]) => void): void {
