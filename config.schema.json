@@ -1,166 +1,101 @@
 {
-  "pluginAlias": "GpioIrrigationSystem",
+  "pluginAlias": "GpioIrrigationSystems",
   "pluginType": "platform",
-  "singular": false,
+  "singular": true,
   "headerDisplay": null,
   "schema": {
     "type": "object",
     "properties": {
-      "name": {
-        "title": "Irrigation System",
-        "type": "string",
-        "format": "string",
-        "required": true,
-        "minLength": 6,
-        "default": "Sprinkler"
-      },
-      "type": {
-        "title": "Type",
-        "type": "string",
-        "default": "Sprinkler",
-        "oneOf": [
-          {
-            "title": "Sprinkler",
-            "enum": [
-              "IRRIGATION"
-            ]
-          },
-          {
-            "title": "Shower Head",
-            "enum": [
-              "SHOWER_HEAD"
-            ]
-          },
-          {
-            "title": "Water Faucet",
-            "enum": [
-              "WATER_FAUCET"
-            ]
-          },
-          {
-            "title": "Generic Valve",
-            "enum": [
-              "GENERIC_VALVE"
-            ]
-          }
-        ],
-        "required": true
-      },
-      "defaultDuration": {
-        "title": "Default duration",
-        "type": "integer",
-        "default": 1200,
-        "required": true
-      },
-      "gpio": {
-        "title": "GPIO Settings",
-        "type": "object",
-        "properties": {
-          "pin": {
-            "title": "Pin Number",
-            "type": "integer",
-            "required": true
-          },
-          "invertHighLow": {
-            "title": "invert pin signal",
-            "type": "boolean",
-            "default": false,
-            "required": true
-          }
-        },
-        "required": true
-      },
-      "automation": {
-        "title": "Scheduled activation",
+      "systems": {
+        "title": "Irrigation Systems",
         "type": "array",
         "items": {
-          "title": "Schedule",
+          "title": "Irrigation System",
           "type": "object",
           "properties": {
+            "name": {
+              "title": "Name",
+              "type": "string",
+              "format": "string",
+              "required": true,
+              "default": "Sprinkler System"
+            },
             "active": {
               "title": "enabled",
               "type": "boolean",
-              "default": true,
-              "required": true
+              "required": true,
+              "default": true
             },
-            "duration": {
-              "title": "duration in ms",
-              "type": "integer",
-              "default": 1200,
-              "required": true
-            },
-            "time": {
-              "title": "time in hh:mm",
-              "type": "string",
-              "default": "00:00",
-              "pattern": "^[0-2][0-9]:[0-5][0-9]$",
-              "required": true
+            "valves": {
+              "title": "Zones",
+              "type": "array",
+              "items": {
+                "title": "Zone",
+                "type": "object",
+                "properties": {
+                  "pin": {
+                    "title": "Pin",
+                    "type": "integer",
+                    "description": "GPIO Pin number",
+                    "required": true
+                  },
+                  "invertHighLow": {
+                    "title": "invert pin signal",
+                    "type": "boolean",
+                    "default": false,
+                    "required": true
+                  },
+                  "automation": {
+                    "title": "Scheduling",
+                    "type": "array",
+                    "description": "This scheduling is based on <a href=\"https://www.npmjs.com/package/cron\">cron</a> package. You can specify hour, minute and day of week. You can use Asterisk * to match all. At each timestamp which matches your specified pattern, the valve is activated for the specified duration. For example: h=0-6,20-22; m=0,30; daysOfWeek=* means every day at 00:00, 00:30, ..., 06:30, 20:00, ..., 22:30 the valve is activated.",
+                    "items": {
+                      "title": "Job",
+                      "type": "object",
+                      "properties": {
+                        "active": {
+                          "title": "enabled",
+                          "type": "boolean",
+                          "default": true,
+                          "required": true
+                        },
+                        "duration": {
+                          "title": "duration in seconds",
+                          "description": "300 ≙ 5 min, 600 ≙ 10 min",
+                          "type": "integer",
+                          "default": 300,
+                          "required": true
+                        },
+                        "hour": {
+                          "title": "hour",
+                          "type": "string",
+                          "default": "00",
+                          "description": "range: 00-23 or *; example: '0,6' -> each 00:mm and 06:mm",
+                          "required": true
+                        },
+                        "minute": {
+                          "title": "minute",
+                          "type": "string",
+                          "default": "00",
+                          "description": "range: 00-59; example: '0,30' -> at each hh:00 and hh:30",
+                          "required": true
+                        },
+                        "dayOfWeek": {
+                          "title": "dyas of week",
+                          "type": "string",
+                          "default": "0-6",
+                          "description": "range 0-6 (Sun-Sat) or *; example: '2' -> only mondays; example: '2-5' -> weekdays (Mon-Fri)",
+                          "required": true
+                        }
+                      }
+                    }
+                  }
+                }
+              }
             }
           }
         }
       }
     }
-  },
-  "layout": [
-    {
-      "type": "flex",
-      "flex-flow": "row wrap",
-      "items": [
-        "name",
-        "type"
-      ]
-    },
-    {
-      "type": "div",
-      "items": [
-        "defaultDuration"
-      ]
-    },
-    {
-      "type": "fieldset",
-      "title": "GPIO Settings",
-      "expandable": true,
-      "items": [
-        {
-          "type": "flex",
-          "flex-flow": "row wrap",
-          "items": [
-            "gpio.pin",
-            "gpio.invertHighLow"
-          ]
-        }
-      ]
-    },
-    {
-      "type": "fieldset",
-      "title": "Schedule",
-      "expandable": true,
-      "items": [
-        {
-          "key": "automation",
-          "type": "array",
-          "items": [
-            {
-              "type": "div",
-              "items": [
-                {
-                  "type": "flex",
-                  "flex-flow": "row wrap",
-                  "items": [
-                    "automation[].duration",
-                    "automation[].time"
-                  ]
-                },
-                {
-                  "items": [
-                    "automation[].active"
-                  ]
-                }
-              ]
-            }
-          ]
-        }
-      ]
-    }
-  ]
+  }
 }

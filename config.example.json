@@ -1,0 +1,81 @@
+{
+  "bridge": {
+    "name": "Homebridge",
+    "username": "C1:22:3D:E3:CE:32",
+    "port": 52131,
+    "pin": "032-45-154"
+  },
+  "accessories": [],
+  "platforms": [
+    {
+      "platform": "GpioIrrigationSystems",
+      "systems": [
+        {
+          "name": "Garden Sprinklers",
+          "active": true,
+          "valves": [
+            {
+              "pin": 13,
+              "invertHighLow": true,
+              "automation": [
+                {
+                  "active": true,
+                  "duration": 600,
+                  "hour": "19",
+                  "minute": "00",
+                  "dayOfWeek": "0-6"
+                }
+              ]
+            },
+            {
+              "pin": 15,
+              "invertHighLow": true,
+              "automation": [
+                {
+                  "active": true,
+                  "duration": 300,
+                  "hour": "10",
+                  "minute": "00",
+                  "dayOfWeek": "0-6"
+                }
+              ]
+            }
+          ]
+        },
+
+        {
+          "name": "Balcony Sprinklers",
+          "active": true,
+          "valves": [
+            {
+              "pin": 12,
+              "invertHighLow": true,
+              "automation": [
+                {
+                  "active": true,
+                  "duration": 300,
+                  "hour": "19",
+                  "minute": "30",
+                  "dayOfWeek": "0-6"
+                }
+              ]
+            },
+            {
+              "pin": 11,
+              "invertHighLow": true,
+              "automation": [
+                {
+                  "active": true,
+                  "duration": 100,
+                  "hour": "0-6",
+                  "minute": "00,30",
+                  "dayOfWeek": "*"
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ]
+}

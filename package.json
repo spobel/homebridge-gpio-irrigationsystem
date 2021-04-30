@@ -1,6 +1,6 @@
 {
   "private": false,
-  "displayName": "Homebridge Irrigation System for GPIO",
+  "displayName": "Irrigation System for GPIO",
   "name": "homebridge-gpio-irrigationsystem",
   "version": "0.0.1",
   "description": "This plugin maps GPIO as Valve in HomeKit.",

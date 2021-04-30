@@ -1,24 +1,24 @@
 import {PlatformConfig} from "homebridge";
 
 export type Config = PlatformConfig | {
-    systems: System[];
+    systems: SystemConfig[];
 }
 
-export type System = {
+export type SystemConfig = {
     name: string;
-    outlets: Outlet[];
+    valves: ValveConfig[];
 }
 
-export type Outlet = {
+export type ValveConfig = {
     pin: number;
     invertHighLow: boolean;
-    automation: Automation[];
+    automation: AutomationConfig[];
 }
 
-export type Automation = {
+export type AutomationConfig = {
     active: boolean;
     duration: number;
     hour: string;
     minute: string;
-    dayOfWeek: string | null;
+    dayOfWeek: string;
 }

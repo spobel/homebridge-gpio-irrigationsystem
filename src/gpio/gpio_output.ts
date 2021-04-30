@@ -1,35 +1,41 @@
-//import {Gpio} from "onoff";
-import {Gpio} from "./gpio_debugger";
-import {Logger} from "homebridge";
+import {BinaryValue, Gpio} from "onoff";
+import {VirtualGpio} from "./gpio_virtual";
+import {GPIO} from "./gpio_interface";
 
 export class GpioOutput {
 
-    private readonly log: Logger;
+    private gpio: GPIO;
 
-    private readonly pin: number;
-    private readonly invertHighLow: boolean;
-
-    private gpio: Gpio;
-
-    constructor(log: Logger, pin: number, invertHighLow: boolean) {
-        this.log = log;
-        this.pin = pin;
-        this.invertHighLow = invertHighLow;
-
-        this.gpio = new Gpio(this.pin, "out");
-        this.off();
+    constructor(public readonly log: (message: string) => void, public readonly pin: number, public readonly invertHighLow: boolean) {
+        if (Gpio.accessible && process.platform !== "darwin") {
+            this.gpio = new Gpio(this.pin, "out");
+        } else {
+            this.gpio = new VirtualGpio(this.pin);
+        }
+        this.off(() => this.log("GPIO initialized"));
     }
 
-    on() {
+    on(onOk: () => void) {
         const voltage = this.invertHighLow ? Gpio.LOW : Gpio.HIGH;
-        this.log.info("turn GPIO %d on, (voltage %d)", this.pin, voltage);
-        this.gpio.writeSync(voltage);
+        this.write(voltage, "on", onOk);
     }
 
-    off() {
+    off(onOk: () => void) {
         const voltage = this.invertHighLow ? Gpio.HIGH : Gpio.LOW;
-        this.log.info("turn GPIO %d off, (voltage %d)", this.pin, voltage);
-        this.gpio.writeSync(voltage);
+        this.write(voltage, "off", onOk);
+    }
+
+    private write(value: BinaryValue, message: "on" | "off", onOk: () => void) {
+        this.gpio.write(value, (err) => this.callbackHandler(err, onOk, message, value));
+    }
+
+    private callbackHandler(err, onOk, message, value) {
+        if (err) {
+            this.log("error by turn GPIO " + this.pin + " " + message + ", (voltage " + value + "), due to " + err);
+        } else {
+            this.log("turned GPIO " + this.pin + " " + message + ", (voltage " + value + ")");
+            onOk();
+        }
     }
 
 }
