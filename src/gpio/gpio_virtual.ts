@@ -3,7 +3,7 @@ import {GPIO} from "./gpio_interface";
 
 export class VirtualGpio implements GPIO {
 
-    constructor(public readonly pin: number) {
+    constructor(private readonly pin: number) {
     }
 
     async write(value: BinaryValue, callback?: (err: (Error | null | undefined)) => void): Promise<void> {

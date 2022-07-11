@@ -1,7 +1,8 @@
-import {AccessoryPlugin, API, APIEvent, Logging, StaticPlatformPlugin} from "homebridge";
+import {AccessoryPlugin, API, Logging, StaticPlatformPlugin} from "homebridge";
 
-import {Config, SystemConfig} from "./config_types";
+import {Config, SystemConfig, ValveConfig} from "./config_types";
 import {GpioIrrigationSystemAccessory} from "./accessories/irrigationsystem";
+import {GpioValveAccessory} from "./accessories/valve";
 
 export class GpioIrrigationSystemPlatform implements StaticPlatformPlugin {
 
@@ -9,11 +10,16 @@ export class GpioIrrigationSystemPlatform implements StaticPlatformPlugin {
 
     constructor(public readonly log: Logging, public readonly config: Config, public readonly api: API) {
         config.systems.forEach(this.addSystem.bind(this))
-        this.api.on(APIEvent.DID_FINISH_LAUNCHING, () => {});
     }
 
     addSystem(system: SystemConfig) {
-        this.accessoryPlugins.push(new GpioIrrigationSystemAccessory(this.log, system, this.api));
+        const irrg = new GpioIrrigationSystemAccessory(this.log, system, this.api)
+        system.valves.forEach((v, i) => this.initValves(irrg, v, i));
+        this.accessoryPlugins.push(irrg);
+    }
+
+    initValves(irrg: GpioIrrigationSystemAccessory, valveConfig: ValveConfig, index: number) {
+        new GpioValveAccessory(this.log, irrg, valveConfig, index + 1, this.api);
     }
 
     accessories(callback: (foundAccessories: AccessoryPlugin[]) => void): void {

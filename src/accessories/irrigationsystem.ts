@@ -1,26 +1,38 @@
-import {AccessoryPlugin, Logging, CharacteristicValue, API} from 'homebridge';
-import {ValveConfig, SystemConfig} from "../config_types";
+import {AccessoryPlugin, API, CharacteristicValue, Logging, Service} from 'homebridge';
+import {SystemConfig} from "../config_types";
 import {GpioValveAccessory} from "./valve";
 
-let Characteristic, Service;
+let Characteristic;
 
 export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
 
     public readonly name;
+    public readonly subValves: GpioValveAccessory[] = [];
+    public readonly irrigationSystemService;
+    public readonly labeling;
+    public readonly services: Service[] = [];
+    public readonly mainServices: Service[] = [];
     private readonly accessoryInformationService;
-    private readonly irrigationSystemService;
-    private readonly subValves: GpioValveAccessory[] = [];
 
     constructor(private readonly log: Logging, private readonly system: SystemConfig, public readonly api: API) {
         Characteristic = api.hap.Characteristic;
-        Service = api.hap.Service;
+
         this.name = system.name;
         this.logInfo("Initializing...");
-        this.accessoryInformationService = new Service.AccessoryInformation();
-        this.irrigationSystemService = new Service.IrrigationSystem(this.name);
+        this.accessoryInformationService = new api.hap.Service.AccessoryInformation();
+        this.irrigationSystemService = new api.hap.Service.IrrigationSystem(this.name);
+        this.irrigationSystemService.isPrimaryService = true;
+
         this.initAccessoryInformation();
         this.initIrrigationSystem();
-        this.initValves();
+
+        this.labeling = new api.hap.Service.ServiceLabel();
+        this.labeling.setCharacteristic(Characteristic.ServiceLabelNamespace, Characteristic.ServiceLabelNamespace.ARABIC_NUMERALS);
+
+        this.mainServices = [
+            this.accessoryInformationService,
+            this.labeling,
+            this.irrigationSystemService];
     }
 
     generateSerial() {
@@ -37,23 +49,33 @@ export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
 
     initIrrigationSystem(): void {
         this.getIrrigationSystemService().setCharacteristic(Characteristic.Active, Characteristic.Active.ACTIVE);
-        this.getIrrigationSystemService().setCharacteristic(Characteristic.ProgramMode, Characteristic.ProgramMode.PROGRAM_SCHEDULED);
+        this.getIrrigationSystemService().getCharacteristic(Characteristic.Active).onSet((value) => {
+            this.log.info("gettinng active %s", value);
+        })
+
+        this.getIrrigationSystemService().setCharacteristic(Characteristic.ProgramMode, Characteristic.ProgramMode.NO_PROGRAM_SCHEDULED);
+        this.getIrrigationSystemService().getCharacteristic(Characteristic.ProgramMode).onGet(() => {
+            this.logInfo("gettinng program mode");
+            return Characteristic.ProgramMode.NO_PROGRAM_SCHEDULED;
+        })
+
         this.getIrrigationSystemService().setCharacteristic(Characteristic.InUse, Characteristic.InUse.NOT_IN_USE);
-        this.getIrrigationSystemService().setCharacteristic(Characteristic.RemainingDuration, 0);
+        this.getIrrigationSystemService().getCharacteristic(Characteristic.InUse).onGet(() => {
+            this.logInfo("gettinng in use");
+            return Characteristic.InUse.NOT_IN_USE;
+        })
+
+        //this.getIrrigationSystemService().setCharacteristic(Characteristic.RemainingDuration, 0);
     }
 
-    initValves() {
-        this.system.valves.forEach(this.initValve.bind(this));
-        this.subValves.forEach(v => this.getIrrigationSystemService().addLinkedService(v.getValveService()));
+    notify(): void {
+        //this.getIrrigationSystemService().updateCharacteristic(Characteristic.ProgramMode, this.getProgramModeCharacteristicValue());
+        //this.getIrrigationSystemService().updateCharacteristic(Characteristic.InUse, this.getInUseCharacteristicValue());
+
+        //const remaining = this.sumLinkedValveRemainingDuration();
+        //this.getIrrigationSystemService().updateCharacteristic(Characteristic.RemainingDuration, remaining < 0 ? 0 : remaining);
     }
 
-    initValve(valveConfig: ValveConfig, index: number) {
-        this.subValves.push(new GpioValveAccessory(this.log, this, valveConfig, index + 1, this.api));
-    }
-
-    onChangeActive(): void {
-        this.getIrrigationSystemService().updateCharacteristic(Characteristic.ProgramMode, this.getProgramModeCharacteristicValue());
-    }
 
     getProgramModeCharacteristicValue(): 0 | 1 | 2 {
         if (this.isLinkedValveActive()) return Characteristic.ProgramMode.PROGRAM_SCHEDULED_MANUAL_MODE_
@@ -69,10 +91,6 @@ export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
         return this.subValves.filter(v => v.hasActiveJobs()).length > 0;
     }
 
-    onChangeInUse(): void {
-        this.getIrrigationSystemService().updateCharacteristic(Characteristic.InUse, this.getInUseCharacteristicValue());
-    }
-
     getInUseCharacteristicValue(): 0 | 1 {
         return this.isLinkedValveInUse() ? Characteristic.InUse.IN_USE : Characteristic.InUse.NOT_IN_USE;
     }
@@ -81,29 +99,23 @@ export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
         return this.countCharacteristicSetToInLinkedServices(Characteristic.InUse, Characteristic.InUse.IN_USE) >= 1;
     }
 
-    onChangeRemainingDuration(): void {
-        const remaining = this.sumLinkedValveRemainingDuration();
-        this.getIrrigationSystemService().updateCharacteristic(Characteristic.RemainingDuration, remaining < 0 ? 0 : remaining);
-    }
-
     sumLinkedValveRemainingDuration(): number {
-        return this.getIrrigationSystemService().linkedServices
+        return this.services
             .map(v => v.getCharacteristic(Characteristic.RemainingDuration).value || 0)
             .map(a => parseInt(a.toString()))
             .reduce((a, b) => a + b);
     }
 
     countCharacteristicSetToInLinkedServices(characteristic, value: CharacteristicValue): number {
-        return this.subValves
-            .map(v => v.getValveService())
+        return this.services
             .filter(l => l.getCharacteristic(characteristic).value === value).length;
     }
 
-    getAccessoryInformationService(): typeof Service {
+    getAccessoryInformationService(): Service {
         return this.accessoryInformationService;
     }
 
-    getIrrigationSystemService(): typeof Service {
+    getIrrigationSystemService(): Service {
         return this.irrigationSystemService;
     }
 
@@ -111,10 +123,8 @@ export class GpioIrrigationSystemAccessory implements AccessoryPlugin {
         this.log.info("[%s] %s", this.name, message);
     }
 
-    getServices(): typeof Service[] {
-        return [this.accessoryInformationService,
-            this.irrigationSystemService,
-            ...(this.subValves.map(v => v.getValveService()))];
+    getServices(): Service[] {
+        return this.mainServices;
     }
 
 }

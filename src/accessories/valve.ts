@@ -1,4 +1,4 @@
-import {AccessoryPlugin, Logging, CharacteristicValue, CharacteristicSetCallback, API} from "homebridge";
+import {AccessoryPlugin, API, CharacteristicValue, Logging, Service} from "homebridge";
 import {CronJob} from "cron";
 
 import {GpioIrrigationSystemAccessory} from "./irrigationsystem";
@@ -6,28 +6,33 @@ import {GpioOutput} from "../gpio/gpio_output";
 import {Timer} from "../utils/timer";
 import {AutomationConfig, ValveConfig} from "../config_types";
 
-let Characteristic, Service;
+let Characteristic;
 
-export class GpioValveAccessory implements AccessoryPlugin {
+export class GpioValveAccessory {
 
     private readonly name;
-    private readonly valveService;
+
+    private readonly valveService: Service;
+
+    private readonly gpio: GpioOutput;
 
     private timer: Timer | null = null;
     private manualDuration: number = 300;
-    private gpio: GpioOutput;
 
     private jobs: CronJob[] = [];
     private jobsAreActive = true;
 
-    constructor(public readonly log: Logging, public readonly parent: GpioIrrigationSystemAccessory, public readonly outlet: ValveConfig, public readonly index: number, private api: API) {
+    constructor(private readonly log: Logging,
+                private readonly parent: GpioIrrigationSystemAccessory,
+                private readonly outlet: ValveConfig,
+                private readonly index: number,
+                private readonly api: API) {
         Characteristic = api.hap.Characteristic;
-        Service = api.hap.Service;
 
-        this.name = this.parent.name + ".Zone " + index;
+        this.name = this.parent.name + ".Zone " + this.index;
         this.logInfo("Initializing...");
 
-        this.valveService = new Service.Valve(this.parent.name, "" + index);
+        this.valveService = new api.hap.Service.Valve(this.parent.name, "Zone " + this.index);
         this.gpio = new GpioOutput(this.logInfo.bind(this), this.outlet.pin, this.outlet.invertHighLow);
 
         this.initService();
@@ -35,46 +40,45 @@ export class GpioValveAccessory implements AccessoryPlugin {
 
         this.scheduleJobs();
         this.activateJobs();
-    }
 
-    getServices(): typeof Service[] {
-        return [this.valveService];
+        this.parent.subValves.push(this);
+        this.parent.services.push(this.valveService);
+        this.parent.mainServices.push(this.valveService);
     }
 
     initService(): void {
+        this.valveService.setCharacteristic(Characteristic.ValveType, Characteristic.ValveType.IRRIGATION);
+        this.valveService.setCharacteristic(Characteristic.ServiceLabelIndex, this.index);
+
         this.valveService.setCharacteristic(Characteristic.Active, Characteristic.Active.INACTIVE);
         this.valveService.setCharacteristic(Characteristic.InUse, Characteristic.InUse.NOT_IN_USE);
-        this.valveService.setCharacteristic(Characteristic.ValveType, Characteristic.ValveType.IRRIGATION);
 
         this.valveService.setCharacteristic(Characteristic.SetDuration, this.manualDuration);
         this.valveService.setCharacteristic(Characteristic.RemainingDuration, 0);
         this.valveService.setCharacteristic(Characteristic.IsConfigured, Characteristic.IsConfigured.CONFIGURED);
-        this.valveService.setCharacteristic(Characteristic.ServiceLabelIndex, this.index);
     }
 
     bindService(): void {
-        this.valveService.getCharacteristic(Characteristic.Active).on("set", this.onSetActive.bind(this));
-        this.valveService.getCharacteristic(Characteristic.InUse).onSet(this.onSetInUse.bind(this));
+        this.valveService.getCharacteristic(Characteristic.Active).onSet(this.onSetActive.bind(this));
 
         this.valveService.getCharacteristic(Characteristic.SetDuration).onSet(this.onSetSetDuration.bind(this));
         this.valveService.getCharacteristic(Characteristic.RemainingDuration).onGet(this.onGetRemainingDuration.bind(this));
         this.valveService.getCharacteristic(Characteristic.IsConfigured).onSet(this.onSetIsConfigured.bind(this));
     }
 
-    onSetActive(value: CharacteristicValue, callback: CharacteristicSetCallback): void {
-        callback();
-        if (value === Characteristic.Active.ACTIVE) this.startTimer(this.manualDuration);
-        if (value === Characteristic.Active.INACTIVE) this.interruptTimer();
-        this.parent.onChangeActive();
-    }
-
-    onSetInUse(value: CharacteristicValue): void {
-        this.log.info("set to %s", value);
-        this.parent.onChangeInUse();
+    onSetActive(value: CharacteristicValue): void {
+        if (value === Characteristic.Active.ACTIVE)
+            this.startTimer(this.manualDuration);
+        else if (value === Characteristic.Active.INACTIVE)
+            this.interruptTimer();
+        this.parent.notify();
     }
 
     onSetSetDuration(value: CharacteristicValue): void {
-        if (typeof value === "number") this.manualDuration = value;
+        if (typeof value === "number") {
+            this.manualDuration = value;
+            this.log.info("manual duration %s", value);
+        }
     }
 
     onGetRemainingDuration(): CharacteristicValue {
@@ -82,24 +86,30 @@ export class GpioValveAccessory implements AccessoryPlugin {
     }
 
     onSetIsConfigured(value: CharacteristicValue): void {
-        if (value === Characteristic.IsConfigured.CONFIGURED) this.activateJobs();
-        if (value === Characteristic.IsConfigured.NOT_CONFIGURED) this.stopJobs();
-        this.parent.onChangeActive();
+        if (value === Characteristic.IsConfigured.CONFIGURED)
+            this.activateJobs();
+        else if (value === Characteristic.IsConfigured.NOT_CONFIGURED)
+            this.stopJobs();
+        this.parent.notify();
     }
 
     setInUse() {
+        this.log.info("in use",);
         this.valveService.updateCharacteristic(Characteristic.InUse, Characteristic.InUse.IN_USE);
+        this.parent.notify();
     }
 
     setNotInUse() {
+        this.log.info("not in use");
         this.valveService.updateCharacteristic(Characteristic.InUse, Characteristic.InUse.NOT_IN_USE);
+        this.parent.notify();
     }
 
     startTimer(duration: number): void {
         this.interruptTimer();
         this.timer = new Timer(duration, this.open.bind(this), this.close.bind(this));
         this.valveService.updateCharacteristic(Characteristic.RemainingDuration, duration);
-        this.parent.onChangeRemainingDuration();
+        this.parent.notify();
     }
 
     interruptTimer(): void {
@@ -114,7 +124,7 @@ export class GpioValveAccessory implements AccessoryPlugin {
         this.gpio.off(this.setNotInUse.bind(this));
     }
 
-    getValveService() {
+    getValveService(): Service {
         return this.valveService;
     }
 

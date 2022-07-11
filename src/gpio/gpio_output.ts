@@ -5,24 +5,24 @@ import {GPIO} from "./gpio_interface";
 export class GpioOutput {
 
     private gpio: GPIO;
+    private readonly voltageOn;
+    private readonly voltageOff;
 
-    constructor(public readonly log: (message: string) => void, public readonly pin: number, public readonly invertHighLow: boolean) {
-        if (Gpio.accessible && process.platform !== "darwin") {
-            this.gpio = new Gpio(this.pin, "out");
-        } else {
-            this.gpio = new VirtualGpio(this.pin);
-        }
+    constructor(private readonly log: (message: string) => void,
+                private readonly pin: number,
+                invertHighLow: boolean) {
+        this.gpio = Gpio.accessible && process.platform !== "darwin" ? new Gpio(this.pin, "out") : new VirtualGpio(this.pin);
+        this.voltageOn = invertHighLow ? Gpio.LOW : Gpio.HIGH;
+        this.voltageOff = invertHighLow ? Gpio.HIGH : Gpio.LOW;
         this.off(() => this.log("GPIO initialized"));
     }
 
-    on(onOk: () => void) {
-        const voltage = this.invertHighLow ? Gpio.LOW : Gpio.HIGH;
-        this.write(voltage, "on", onOk);
+    on(callback: () => void) {
+        this.write(this.voltageOn, "on", callback);
     }
 
-    off(onOk: () => void) {
-        const voltage = this.invertHighLow ? Gpio.HIGH : Gpio.LOW;
-        this.write(voltage, "off", onOk);
+    off(callback: () => void) {
+        this.write(this.voltageOff, "off", callback);
     }
 
     private write(value: BinaryValue, message: "on" | "off", onOk: () => void) {
